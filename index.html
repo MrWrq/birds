@@ -1,0 +1,203 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<title>Document</title>
+</head>
+<body>
+	<script type="text/javascript">
+		//封装
+		onLoadImg=function(imgSrc,callback){
+		var listImg={};
+		var content=0;
+		var imgLen=imgSrc.length;
+		//给图片添加路径
+			imgSrc.forEach(function(val,index){
+				var img = new Image();
+				img.src='images/'+val+'.png';
+				listImg[val]=img;
+				img.onload=function(){
+					content++;
+					//全部加载完成调用回调函数
+					if(content>=imgLen){
+						callback(listImg);
+					};
+				};
+			});
+		};
+
+		//角度转化
+		toRadian=function(angle) {
+			return angle/180*Math.PI;
+		}
+
+		//创建游戏画布
+		var cv = document.createElement('canvas');
+		document.getElementsByTagName('body')[0].appendChild(cv);
+		cv.width='800';
+		cv.height='600';
+		cv.style.border='1px solid red';
+		var ctx=cv.getContext("2d");
+
+		//声明游戏系统变量
+		var a = 0.0005;// 加速度
+		var speed = 0;// 瞬时速度
+		var delta = 0;// 两帧的时间间隔
+		var fly_speed=-.1;//背景移动速度
+		var flag=true;
+		var k = 1;
+		
+		var imgList = ['birds', 'land', 'sky', 'pipe1', 'pipe2'];
+		
+		//图片加载完成事件
+		onLoadImg(imgList,function(imgs){
+			//获取图片对象
+			var bird=imgs.birds; //小鸟
+			var sky = imgs.sky; //天空
+			var land =imgs.land; //陆地
+			var pipe2=imgs.pipe2; //上管道
+			var pipe1=imgs.pipe1; //下管道
+			
+			//绘制小鸟需用变量
+			var step = 0 ;
+			var curAngle = 0; //小鸟旋转初始角度
+			var y = 100;// 小鸟垂直方向的初始位置
+			var maxAngle = 45;//小鸟最大旋转角度
+			var maxSpeed = 0.5;// 达到最大角度时的速度
+			var imW=bird.width/3;
+			var imH=bird.height;
+
+			//绘制天空需用的变量
+			var arrSky=[sky.width*0,sky.width];
+
+			//绘制陆地需用的变量
+			var land_y = cv.height-land.height;
+			var arrLand=[];
+			for(var i =0 ; i<4;i++){
+				var land_X=land.width*i;
+				arrLand.push(land_X);
+			};
+
+			//绘制管道需用的变量
+			var pipeHeight=pipe1.height; 
+			var pipeWeigth=pipe1.width; 
+			var pipeSpace=150; 
+			var arrTop=[] ; var arrBot=[]; var arrPieX=[];
+			for(var i=0; i<6; i++){
+				var pipeH=Math.random()*200+50;
+				var topY=pipeH-pipeHeight;
+				arrTop.push(topY); //上管道Y坐标
+				var bottomY=pipeH+pipeSpace;
+				arrBot.push(bottomY); //下管道Y坐标
+				var pipeX=pipeWeigth*3*i+250;
+				arrPieX.push(pipeX); //每个管道X坐标
+			};
+
+			//在canvas中绘制图片
+			var lastFrameTime = new Date();// 上一帧的时间
+			var curFrameTime = 0; //当前时间默认值
+			var time=0;
+			(function render() {
+				curFrameTime=new Date();
+				delta=curFrameTime-lastFrameTime; //两帧之间时间差
+				lastFrameTime=curFrameTime;
+				ctx.clearRect(0, 0, cv.width, cv.height); //清理路径
+				ctx.beginPath();
+
+				//绘制天空背景
+				for(var i = 0 ;i<2; i++){
+					ctx.drawImage(sky, arrSky[i], 0);
+					arrSky[i]+=fly_speed * delta;
+					if(arrSky[i]<=-sky.width){
+						arrSky[i]+=sky.width*2;
+					}
+				};
+
+				//绘制管道
+				for(var i = 0 ; i< 6 ;i ++){
+					ctx.drawImage(pipe2, arrPieX[i], arrTop[i]); //上管道
+					ctx.drawImage(pipe1, arrPieX[i], arrBot[i]); //下管道
+					ctx.rect(arrPieX[i], arrTop[i], pipeWeigth, pipeHeight);
+					ctx.rect(arrPieX[i], arrBot[i], pipeWeigth, pipeHeight);
+					arrPieX[i]+=fly_speed*delta;
+					if(arrPieX[i]<-pipeWeigth){
+						pipeH=Math.random()*200+50;
+						topY=pipeH-pipeHeight;
+						arrTop.push(topY);
+						bottomY=pipeH+pipeSpace;
+						arrBot.push(bottomY);
+						arrPieX[i]+=pipeWeigth*3*6;
+					}
+				};
+
+				//绘制陆地
+				for(var i=0 ; i < 4 ;i++ ){
+					ctx.drawImage(land, arrLand[i], land_y);
+					arrLand[i]+=fly_speed * delta;
+					if(arrLand[i]<-land.width){
+						arrLand[i]+=land.width*4
+					}
+				};
+				
+				//绘制英雄(小鸟)
+				ctx.save();
+				ctx.translate(100,y);
+				curAngle=speed/maxSpeed*maxAngle;
+				curAngle=curAngle>45?45:curAngle;
+				ctx.rotate(toRadian(curAngle));//旋转画布
+				ctx.drawImage(bird,imW*step++,0,imW,imH,-1/2*imW,-1/2*imH,imW*k,imH*k);
+				speed=speed+a*delta;
+				y=y+(speed*delta+1/2*a*Math.pow(delta,2));
+				step%=3;
+				fly_speed=time>2000?-.2:fly_speed;
+				fly_speed=time>3000?-.25:fly_speed;
+				fly_speed=time>4000?-.3:fly_speed;
+				ctx.restore(); //恢复状态
+				
+				//提示用户展示信息
+				if(time>500&&time<600) {
+					fly_speed=-.15;
+					ctx.fillText('恭喜升级,加速中', cv.width/2-25, cv.height/2)
+				};
+				if(time>800&&time<1000) {
+					// fly_speed=-.2;
+					ctx.fillText('我要变大...变大!!!', cv.width/2-25, cv.height/2)
+				};
+				if(time>1050&&time<1300) {
+					k=1.6;
+					ctx.fillText('您已超车,请坐稳!!!', cv.width/2-25, cv.height/2)
+				}
+				ctx.fillText('速度: '+(-fly_speed)*200+' 迈 用时: '+(time++)+'ms', 10, 20);
+				
+				//判断小鸟死亡
+				if(y-8<=0 || y>cv.height-8-land.height || ctx.isPointInPath(100, y)){
+					flag=false;
+					ctx.fillText('游戏结束!', cv.width/2, cv.height/2-100);
+				};
+
+				//重新开始游戏
+				if(!flag){
+					var btnObj = document.createElement('button');
+					document.getElementsByTagName('body')[0].appendChild(btnObj);
+					btnObj.innerHTML='开始新游戏';
+					btnObj.style.position='absolute';
+					btnObj.style.left=cv.width/2-8+'px';
+					btnObj.style.top=cv.height/2-50+'px';
+					btnObj.onclick=function(){
+						window.location.href='index.html';
+					}
+				}
+
+				if( flag ){
+					window.requestAnimationFrame(render);
+				}
+			})();
+		});
+
+		//点击加速向上
+		cv.onclick=function() {
+			speed=-0.3;
+		};
+	</script>
+</body>
+</html>
